@@ -23,10 +23,11 @@ app.get('/', (req, res) => {
     console.log(req.body)
     res.send('ECom API 1!')
 })
-// const port = 5000
-// app.set('port', process. env. PORT || port);
-// app.listen(port, () => {
-//     console.log(`Server started at http://localhost:`,port)
-// })
 
-const server = app.listen(0, () => console.log(`Server started at http://localhost:`,server.address().port))
+const port = 5000
+app.set('port', process. env. PORT || port);
+app.listen(port, () => {
+    console.log(`Server started at http://localhost:`,port)
+})
+
+// const server = app.listen(0, () => console.log(`Server started at http://localhost:`,server.address().port))
