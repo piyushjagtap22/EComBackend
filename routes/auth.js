@@ -10,11 +10,12 @@ require("dotenv").config()
 const nodemailer = require('nodemailer')
 const { isValidObjectId } = require('mongoose')
 const JWT_SECRET = process.env.JWT_SECRET
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET
 const { generateOTP } = require('../utils/auth')
 
 const { OTPMail, transportObject, verifiedMail } = require('../utils/mail')
 const { sendOTP } = require('../utils/sms')
-
+ 
 // "/api/auth" Endpoint
 
 //Route 1 : POST: Create a User /signup 
@@ -92,7 +93,7 @@ router.post('/signup', [
     }
     catch (err) {
         console.log(err.message);
-        res.status(500).send("I")
+        res.status(500).send("Internal Server Error")
         res.json({
             "status": {
                 "code": 500,
@@ -172,7 +173,8 @@ router.post('/gsignup', async (req, res) => {
                 id: user.id
             }
         }
-        const authToken = jwt.sign(data, JWT_SECRET)
+        const authToken = jwt.sign(data, JWT_SECRET,{expiresIn: '10s'})
+        const refreshToken = jwt.sign(data, JWT_REFRESH_SECRET)
 
         res.json({
             "status": {
@@ -180,7 +182,8 @@ router.post('/gsignup', async (req, res) => {
                 "message": "OK"
             },
             "payload": {
-                authToken
+                authToken,
+                refreshToken
             }
         });
 
@@ -227,7 +230,7 @@ router.post('/login', [
                 },
                 "payload": { error: "Please try to login with correct credentials" }
             });
-            
+
         }
         // const passwordCompare = await bcrypt.compare(password, user.password);
         // if (!passwordCompare) {
@@ -269,11 +272,11 @@ router.post('/login', [
             }
         })
 
-        const data = {
-            user: {
-                id: user.id
-            }
-        }
+        // const data = {
+        //     user: {
+        //         id: user.id
+        //     }
+        // }
         // const authToken = jwt.sign(data, JWT_SECRET)
         res.json({
             "status": {
@@ -309,7 +312,7 @@ router.post('/getuser', fetchuser, async (req, res) => {
                 "message": "OK"
             },
             "payload": { user }
-        });
+        })
     }
     catch (err) {
         console.log(err)
@@ -329,20 +332,19 @@ router.post('/verifycode', async (req, res) => {
     try {
 
         const { userId, otp } = req.body
-        console.log(userId, otp)
         if (!userId || !otp.trim()) return res.json({
             "status": {
                 "code": 401,
                 "message": "Unauthorized"
             },
-            "payload": {  }
+            "payload": {}
         });
         if (!isValidObjectId(userId)) return res.json({
             "status": {
                 "code": 401,
                 "message": "Unauthorized"
             },
-            "payload": {  }
+            "payload": {}
         });
         const user = await User.findById(userId)
         if (!user) return res.json({
@@ -350,7 +352,7 @@ router.post('/verifycode', async (req, res) => {
                 "code": 401,
                 "message": "Unauthorized"
             },
-            "payload": {  }
+            "payload": {}
         });
         // if (user.emailVerified) return res.status(401).json({ success: false, error: "User already Verified" })
         const token = await VerificationToken.findOne({ owner: user._id })
@@ -381,7 +383,7 @@ router.post('/verifycode', async (req, res) => {
                         "code": 500,
                         "message": "Internal Server Error"
                     },
-                    "payload": {  error : err}
+                    "payload": { error: err }
                 });
             }
             else {
@@ -394,14 +396,14 @@ router.post('/verifycode', async (req, res) => {
                 id: user.id
             }
         }
-        const authToken = jwt.sign(data, JWT_SECRET)
-
+        const authToken = jwt.sign(data, JWT_SECRET,{expiresIn: '10s'})
+        const refreshToken = jwt.sign(data, JWT_REFRESH_SECRET)
         res.json({
             "status": {
                 "code": 200,
                 "message": "OK"
             },
-            "payload": { authToken }
+            "payload": { authToken, refreshToken }
         });
     }
 
@@ -414,9 +416,41 @@ router.post('/verifycode', async (req, res) => {
             },
             "payload": { error: err }
         });
-        
+
     }
 })
 
+// Route 4 : POST: Reffresh Access Token /refresh
+//Login Required
+router.get('/refresh', fetchuser, async (req, res) => {
+    try {
+        user = req.user
+        const data = {
+            user: { 
+                id: user.id
+            } 
+        }
+        const authToken = jwt.sign(data, JWT_SECRET,{expiresIn: '10s'})
+        res.json({
+            "status": { 
+                "code": 200,
+                "message": "OK"
+            },
+            "payload": { authToken }
+        })
+
+
+    }
+    catch (err) {
+        console.log(err)
+        res.json({
+            "status": {
+                "code": 500,
+                "message": "Internal Server Error"
+            },
+            "payload": { error: err }
+        });
+    }
+})
 
 module.exports = router
